@@ -9,19 +9,6 @@ pub struct Chacha20Poly1305 {
     nonce: [u8; 12],
 }
 
-/*
-      chacha20_aead_encrypt(aad, key, iv, constant, plaintext):
-         nonce = constant | iv
-         otk = poly1305_key_gen(key, nonce)
-         ciphertext = chacha20_encrypt(key, 1, nonce, plaintext)
-         mac_data = aad | pad16(aad)
-         mac_data |= ciphertext | pad16(ciphertext)
-         mac_data |= num_to_4_le_bytes(aad.length)
-         mac_data |= num_to_4_le_bytes(ciphertext.length)
-         tag = poly1305_mac(mac_data, otk)
-         return (ciphertext, tag)
-*/
-
 impl Chacha20Poly1305 {
     pub fn aead_encrypt(self, aad: Vec<u8>, plaintext: Vec<u8>) -> (Vec<u8>, [u8; 16]) {
         let mut poly_1305 = Poly1305::new();

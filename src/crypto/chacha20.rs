@@ -40,13 +40,13 @@ impl ChaCha20 {
     }
 
     fn quarter_round(&self, mut a: u32, mut b: u32, mut c: u32, mut d: u32) -> [u32; 4] {
-        a = ((a as u64 + b as u64) % self.modulus) as u32;
+        a = a.wrapping_add(b);
         d = (d ^ a).rotate_left(16);
-        c = ((c as u64 + d as u64) % self.modulus) as u32;
+        c = c.wrapping_add(d);
         b = (b ^ c).rotate_left(12);
-        a = ((a as u64 + b as u64) % self.modulus) as u32;
+        a = a.wrapping_add(b);
         d = (d ^ a).rotate_left(8);
-        c = ((c as u64 + d as u64) % self.modulus) as u32;
+        c = c.wrapping_add(d);
         b = (b ^ c).rotate_left(7);
         [a, b, c, d]
     }

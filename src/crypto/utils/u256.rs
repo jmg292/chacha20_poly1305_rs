@@ -91,20 +91,36 @@ impl From<u8> for U256 {
 
 impl Into<u8> for U256 {
     fn into(self) -> u8 {
+        for b in &self.0[0..31] {
+            assert_eq!(*b, 0);
+        }
         self.0[31]
     }
 }
 
 impl From<usize> for U256 {
     fn from(val: usize) -> U256 {
-        U256::from(val as u8)
+        let mut value_array: [u8; 32] = [0; 32];
+        let value_bytes = val.to_be_bytes();
+        let offset = value_array.len() - value_bytes.len();
+        for (i, &v) in value_bytes.iter().enumerate() {
+            value_array[i + offset] = v;
+        }
+        U256(value_array)
     }
 }
 
 impl Into<usize> for U256 {
     fn into(self) -> usize {
-        let value: u8 = self.into();
-        value as usize
+        let mut value_bytes = 0usize.to_be_bytes();
+        let offset = 32 - value_bytes.len();
+        for b in &self.0[0..offset] {
+            assert_eq!(*b, 0);
+        }
+        for (i, v) in value_bytes.iter_mut().enumerate() {
+            *v = self.0[i + offset];
+        }
+        usize::from_be_bytes(value_bytes)
     }
 }
 

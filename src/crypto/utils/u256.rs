@@ -128,15 +128,20 @@ impl Ord for U256 {
     fn cmp(&self, other: &U256) -> Ordering {
         let &U256(ref first) = self;
         let &U256(ref second) = other;
+        let mut first_is_larger: u8 = 0;
+        let mut second_is_larger: u8 = 0;
+        let possible_results: [Ordering; 3] = [
+            Ordering::Equal,
+            Ordering::Greater,
+            Ordering::Less
+        ];
         for i in 0..32 {
-            if first[i] < second[i] {
-                return Ordering::Less;
-            }
-            if first[i] > second[i] {
-                return Ordering::Greater;
-            }
+            let first_byte_is_larger = first[i].overflowing_sub(second[i]).1 as u8;
+            let second_byte_is_larger = second[i].overflowing_sub(first[i]).1 as u8;
+            first_is_larger |= (first_byte_is_larger & !second_is_larger);
+            second_is_larger |= (second_byte_is_larger & !first_is_larger);
         }
-        Ordering::Equal
+        possible_results[((second_is_larger << 1) + first_is_larger) as usize]
     }
 }
 
@@ -188,19 +193,31 @@ impl BitXor for U256 {
 impl Shl for U256 {
     type Output = Self;
     fn shl(self, value: U256) -> Self::Output {
-        let U256(ref source) = self;
+        let value_u8: u8 = value.into();
+        let mut partial_mask: u8 = 0;
+        let mut masks: [u8; 32] = [0; 32];
         let mut result_array: [u8; 32] = [0; 32];
         for i in 0..32 {
-            result_array[i] = source[i];
+            result_array[i] = self.0[i];
         }
-        let shift_count: u8 = value.into();
-        for _ in 0..shift_count {
+        let full_mask_count: u8 = value_u8 / 8u8;
+        let partial_mask_bits: u8 = value_u8 % 8u8;
+        for i in 0..full_mask_count {
+            masks[i as usize] = 0xFF;
+        }
+        for i in 0..partial_mask_bits {
+            partial_mask |= (0x01 << (7 - i))
+        }
+        masks[full_mask_count as usize] = partial_mask;
+        for index in 0..32 {
+            let mask = masks[index];
+            let shift_count = mask.count_ones();
             for i in 0..32 {
-                let carry_flag: bool = (result_array[i] & 0x80) > 0;
-                if carry_flag && i > 0 {
-                    result_array[i - 1] |= 0x01;
+                let carry_value: u8 = result_array[i] & mask;
+                if i > 0 {
+                    result_array[i - 1] |= carry_value;
                 }
-                result_array[i] = result_array[i] << 0x01;
+                result_array[i] = result_array[i].overflowing_shl(shift_count).0;
             }
         }
         U256(result_array)
@@ -210,19 +227,31 @@ impl Shl for U256 {
 impl Shr for U256 {
     type Output = Self;
     fn shr(self, value: U256) -> Self::Output {
-        let U256(ref source) = self;
+        let value_u8: u8 = value.into();
+        let mut partial_mask: u8 = 0;
+        let mut masks: [u8; 32] = [0; 32];
         let mut result_array: [u8; 32] = [0; 32];
         for i in 0..32 {
-            result_array[i] = source[i];
+            result_array[i] = self.0[i];
         }
-        let shift_count: u8 = value.into();
-        for _ in 0..shift_count {
+        let full_mask_count: u8 = value_u8 / 8u8;
+        let partial_mask_bits: u8 = value_u8 % 8u8;
+        for i in 0..full_mask_count {
+            masks[i as usize] = 0xFF;
+        }
+        for i in 0..partial_mask_bits {
+            partial_mask |= (0x01 << i)
+        }
+        masks[full_mask_count as usize] = partial_mask;
+        for index in 0..32 {
+            let mask = masks[index];
+            let shift_count = mask.count_ones();
             for i in (0..32).rev() {
-                let carry_flag: bool = (result_array[i] & 0x01) > 0;
-                if carry_flag && i < 31 {
-                    result_array[i + 1] |= 0x80;
+                let carry_value = result_array[i] & mask;
+                if i < 31 {
+                    result_array[i + 1] |= carry_value;
                 }
-                result_array[i] = result_array[i] >> 0x01;
+                result_array[i] = result_array[i] >> shift_count;
             }
         }
         U256(result_array)
